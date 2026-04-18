@@ -1,63 +1,85 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 import sys
 
-# Get file name from command argument
+output_dir = "output"
+os.makedirs(output_dir, exist_ok=True)
+print("Output folder created...")
+
+if len(sys.argv) < 2:
+    print("Please provide a CSV file")
+    print("Example: uv run autolysis.py data.csv")
+    sys.exit()
+
 file_path = sys.argv[1]
 
-# Load dataset
-df = pd.read_csv(file_path, encoding="latin1")
+try:
+    data = pd.read_csv(file_path, encoding='latin1')
+    print(f"Dataset '{file_path}' loaded successfully!")
+except Exception as e:
+    print("Error loading file:", e)
+    sys.exit()
 
-print("CSV loaded successfully")
 
-# Print rows and columns
-print("Rows:", df.shape[0])
-print("Columns:", df.shape[1])
+numeric_cols = data.select_dtypes(include=np.number).columns
 
-# Missing values
-print("\nMissing values per column:")
-print(df.isnull().sum())
+print(f"Numeric columns: {list(numeric_cols)}")
 
-# Summary statistics
-print("\nSummary statistics (numeric columns):")
-print(df.describe())
+if len(numeric_cols) == 0:
+    print("No numeric columns found.")
+    sys.exit()
 
-# Select numeric columns
-numeric_cols = df.select_dtypes(include=['number']).columns
 
-# Generate histograms
-for col in numeric_cols:
+print(f"Numeric columns: {list(numeric_cols)}")
+
+def save_histogram(column):
     plt.figure()
-    df[col].hist()
-    plt.title(col)
-    plt.savefig(f"{col}_hist.png")
+    sns.histplot(data[column].dropna(), kde=True)
+    plt.title(f"{column} Histogram")
+    
+    filename = os.path.join(output_dir, f"{column}_hist.png")
+    plt.savefig(filename)
     plt.close()
+    
+    print(f"Histogram saved: {filename}")
 
-print("Histograms saved successfully")
-
-# Correlation matrix
-numeric_df = df.select_dtypes(include=['number'])
-
-plt.figure(figsize=(10,6))
-sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm")
-
-plt.title("Correlation Matrix")
-plt.tight_layout()
-
-plt.savefig("correlation_matrix.png")
-plt.close()
-
-print("Correlation matrix saved successfully")
-
-# Outlier Detection using Boxplots
-numeric_cols = df.select_dtypes(include=['number']).columns
-
-for col in numeric_cols:
+def save_boxplot(column):
     plt.figure()
-    plt.boxplot(df[col].dropna())
-    plt.title(f"Outlier Detection: {col}")
-    plt.savefig(f"{col}_boxplot.png")
+    sns.boxplot(x=data[column])
+    plt.title(f"{column} Boxplot")
+    
+    filename = os.path.join(output_dir, f"{column}_boxplot.png")
+    plt.savefig(filename)
     plt.close()
+    
+    print(f"Boxplot saved: {filename}")
 
-print("Outlier detection boxplots saved successfully")
+try:
+    for col in numeric_cols:
+        save_histogram(col)
+        save_boxplot(col)
+
+    print("All histograms and boxplots saved!")
+except Exception as e:
+    print("Error during plotting:", e)
+
+try:
+    plt.figure(figsize=(10, 8))
+    corr = data.corr(numeric_only=True)
+    
+    sns.heatmap(corr, annot=True)
+    plt.title("Correlation Matrix")
+    
+    filename = os.path.join(output_dir, "correlation_matrix.png")
+    plt.savefig(filename)
+    plt.close()
+    
+    print(f"Correlation matrix saved: {filename}")
+except Exception as e:
+    print("Error generating correlation matrix:", e)
+
+print("\nAnalysis Completed Successfully!")
+print("All outputs are saved in the 'output' folder")
